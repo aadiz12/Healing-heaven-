@@ -1,0 +1,115 @@
+import React, { useState, useEffect } from "react"; import { motion, AnimatePresence } from "framer-motion";
+
+// Single-file React app (Tailwind expected in host project) // Export default a component that can be dropped into a CRA/Vite/Next app.
+
+export default function SafeSpaceApp() { const [step, setStep] = useState("welcome"); const [mood, setMood] = useState(7); // 0 (not broken) - 10 (very broken) const [incident, setIncident] = useState(""); const [analysis, setAnalysis] = useState(null); const [sharedLink, setSharedLink] = useState("");
+
+useEffect(() => { // read from URL for shared state (if present) try { const params = new URLSearchParams(window.location.search); const m = params.get("m"); const inc = params.get("inc"); if (m) setMood(Math.min(10, Math.max(0, Number(m)))); if (inc) setIncident(decodeURIComponent(inc)); if (m || inc) setStep("analysis"); } catch (e) { // ignore } }, []);
+
+function analyze() { // lightweight, humane analysis - deterministic and private (runs client-side) const sadness = Number(mood); const tone = sadness >= 8 ? "deeply hurt" : sadness >= 5 ? "really shaken" : "upset"; const short = incident.trim().slice(0, 220);
+
+const quotes = generateQuotes(sadness);
+const stories = generateStories(sadness);
+const tips = generateMotivation(sadness);
+
+setAnalysis({ tone, short, quotes, stories, tips });
+setStep("analysis");
+
+}
+
+function makeShareLink() { const params = new URLSearchParams(); params.set("m", String(mood)); if (incident.trim()) params.set("inc", encodeURIComponent(incident.trim())); const base = window.location.origin + window.location.pathname; const url = ${base}?${params.toString()}; setSharedLink(url); navigator.clipboard?.writeText(url).catch(() => {}); }
+
+return ( <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-800 to-slate-900 text-white flex items-center justify-center p-6"> <div className="w-full max-w-3xl bg-black/40 backdrop-blur-sm rounded-2xl shadow-2xl p-8"> <header className="flex items-center justify-between mb-6"> <div> <h1 className="text-2xl md:text-3xl font-bold leading-tight">This is a safe place</h1> <p className="text-sm text-gray-300">For you to express your problems — go slow, you're safe here.</p> </div> <div className="text-right text-xs text-gray-400"> <div>By Jignas</div> <div className="text-[10px] mt-1">Jignas is the well-wisher for the world and its ppl</div> </div> </header>
+
+<main>
+      <AnimatePresence exitBeforeEnter>
+        {step === "welcome" && (
+          <motion.section key="welcome" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <p className="mb-6 text-gray-200">Take a deep breath. When you're ready, tell me how sad and broken you're feeling right now.</p>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-full">
+                  <input
+                    aria-label="mood"
+                    type="range"
+                    min={0}
+                    max={10}
+                    value={mood}
+                    onChange={(e) => setMood(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-300 mt-2">
+                    <span>Not broken</span>
+                    <span>Really broken</span>
+                  </div>
+                </div>
+                <div className="w-14 text-center text-2xl font-semibold">{mood}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-gray-300 block">What was the incident that happened (short):</label>
+              <textarea
+                value={incident}
+                onChange={(e) => setIncident(e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/5 placeholder-gray-400 text-white"
+                placeholder="Type briefly — e.g., 'Lost my job', 'Broke up', 'Failed exam'"
+                rows={3}
+              />
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button onClick={analyze} className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow">Analyze</button>
+              <button onClick={() => { setMood(7); setIncident(""); }} className="px-4 py-2 rounded-xl bg-white/10">Reset</button>
+            </div>
+          </motion.section>
+        )}
+
+        {step === "analysis" && analysis && (
+          <motion.section key="analysis" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+            <div className="p-4 rounded-xl bg-white/5">
+              <h2 className="text-xl font-semibold">We hear you — you sound {analysis.tone}.</h2>
+              <p className="mt-2 text-gray-300">"{analysis.short || 'You chose not to describe the incident.'}"</p>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card title="Quotes" items={analysis.quotes} />
+                <Card title="Stories" items={analysis.stories} small/>
+                <Card title="Motivation" items={analysis.tips} />
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                <button onClick={() => { setStep('welcome'); setAnalysis(null); }} className="px-4 py-2 rounded-xl bg-white/10">Back</button>
+                <button onClick={() => { makeShareLink(); }} className="px-4 py-2 rounded-xl bg-green-600">Copy share link</button>
+                <a href={`https://www.instagram.com/`} rel="noreferrer" target="_blank" className="px-4 py-2 rounded-xl bg-pink-600">Open Instagram</a>
+              </div>
+
+              {sharedLink && (
+                <div className="mt-3 text-sm text-gray-200 break-words bg-black/30 p-3 rounded">Shared URL copied to clipboard (or shown here): <br /> <a className="text-indigo-200 underline" href={sharedLink}>{sharedLink}</a></div>
+              )}
+            </div>
+          </motion.section>
+        )}
+
+      </AnimatePresence>
+    </main>
+
+    <footer className="mt-6 text-xs text-gray-400 flex justify-between items-center">
+      <div>Jignas is the well-wisher for the world and its ppl</div>
+      <div className="flex items-center gap-3">
+        <small>Made with care • Private client-side only</small>
+      </div>
+    </footer>
+  </div>
+</div>
+
+); }
+
+function Card({ title, items = [], small }) { return ( <div className={p-4 rounded-lg bg-gradient-to-br from-white/5 to-white/3 ${small ? 'text-sm' : ''}}> <h3 className="font-semibold mb-2">{title}</h3> <ul className="space-y-2 max-h-40 overflow-auto"> {items.map((t, i) => ( <li key={i} className="text-gray-100/90">"{t}"</li> ))} </ul> </div> ); }
+
+// Helper generators (simple deterministic content curated to be gentle + human) function generateQuotes(sadness) { if (sadness >= 8) return [ "Sometimes the storm is a blessing in disguise.", "You are not what happened to you; you are what you choose to become.", "Small steps still move you forward." ]; if (sadness >= 5) return [ "Tough chapters make better stories.", "It's okay to pause and breathe.", "You deserve kindness — from others and yourself." ]; return [ "Every sunrise brings a new chance.", "Healing isn't linear — take your time.", "Be gentle with your process." ]; }
+
+function generateStories(sadness) { if (sadness >= 8) return [ "A person once thought their life was over after loss — they learned to rebuild in small, brave acts.", "A community found strength when one person shared their truth." ]; if (sadness >= 5) return [ "Someone failed publicly, then used that lesson to teach others compassion.", "A friendship healed after honest conversation and boundaries." ]; return [ "A quiet morning walk helped one person find a new path.", "Letters to oneself became a map forward." ]; }
+
+function generateMotivation(sadness) { if (sadness >= 8) return [ "If you're in crisis, please consider reaching out to a trusted person or local helpline.", "Try one tiny routine — a glass of water, five breaths, a step outside.", "Remember: this feeling, though big, will change." ]; if (sadness >= 5) return [ "Write the incident down and set one small boundary today.", "Share with one person — vulnerability builds connection.", "Celebrate one tiny win today." ]; return [ "Make a small plan for the next day — structure helps mood.", "Reward yourself for surviving so far.", "Reach out before you need to — people want to help." ]; }
+
