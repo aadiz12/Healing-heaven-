@@ -1,0 +1,156 @@
+import React, { useState } from 'react'; import { motion } from 'framer-motion';
+
+// Single-file React component for a small, shareable "safe place" app. // Uses Tailwind utility classes for styling (no imports needed). // Features implemented: //  - Welcome screen with calming message //  - Guided questions (what happened) + details input //  - Lightweight text analysis (keyword-based sentiment/severity) //  - Related quotes/stories/motivations shown based on analysis //  - Watermark and "by Jignas" branding across the app //  - Share / copy / download functions so content is shareable //  - Smooth Framer Motion animations and soft UI
+
+export default function JignasSafeSpaceApp() { const [step, setStep] = useState(0); const [feeling, setFeeling] = useState(''); const [incident, setIncident] = useState(''); const [notes, setNotes] = useState(''); const [result, setResult] = useState(null);
+
+const quotes = { gentle: [ { text: "This moment doesn't define you — every sunrise is a chance to start again.", author: 'Jignas' }, { text: 'You survived 100% of your worst days. You can survive this too.', author: 'Unknown' }, ], firm: [ { text: 'Hurt is fuel. Use it to build, not to burn.', author: 'Jignas' }, { text: 'Stand still, breathe, then act — victory loves preparation.', author: 'Coach' }, ], story: [ { title: 'Small Step Story', body: 'A kid lost his path for a while, then wrote one page every day — a year later he had a book and a new life.' }, { title: 'Comeback', body: 'A student failed but asked for help and scheduled small wins — those wins stacked into a semester of success.' }, ], };
+
+function analyzeText(text) { // Very simple, deterministic analysis — rule-based so it runs offline. const lower = text.toLowerCase(); const sadKeywords = ['sad', 'depressed', 'hurt', 'alone', 'bully', 'suic', 'hopeless', 'worthless', 'mad']; const angryKeywords = ['angry', 'pissed', 'hate', 'kill', 'fight', 'revenge']; const anxietyKeywords = ['scared', 'worried', 'nervous', 'panic'];
+
+let score = 0;
+sadKeywords.forEach(k => { if (lower.includes(k)) score -= 2; });
+angryKeywords.forEach(k => { if (lower.includes(k)) score -= 1; });
+anxietyKeywords.forEach(k => { if (lower.includes(k)) score -= 1; });
+
+// severity classification
+let severity = 'mild';
+if (score <= -6) severity = 'severe';
+else if (score <= -3) severity = 'moderate';
+
+// pick style
+let style = 'gentle';
+if (severity === 'moderate') style = 'firm';
+if (severity === 'severe') style = 'firm';
+
+// suggested next steps
+const suggestions = [];
+if (lower.includes('bully')) suggestions.push('Document incidents: dates, names, short notes.');
+if (lower.includes('school') || lower.includes('hostel')) suggestions.push('Talk to a trusted teacher/guardian; safety first.');
+if (severity === 'severe') {
+  suggestions.push('If you feel unsafe or suicidal, contact local emergency services or a trusted adult immediately.');
+} else {
+  suggestions.push('Try a 5-minute breathing exercise: inhale 4, hold 4, exhale 6.');
+  suggestions.push('Write one small, achievable step you can take today.');
+}
+
+return { score, severity, style, suggestions };
+
+}
+
+function handleSubmit() { const combined = ${feeling}\n${incident}\n${notes}; const analysis = analyzeText(combined); // choose quotes/stories based on analysis let chosenQuotes = quotes.gentle; if (analysis.style === 'firm') chosenQuotes = quotes.firm;
+
+setResult({ analysis, chosenQuotes, stories: quotes.story });
+setStep(3);
+
+}
+
+function resetAll() { setStep(0); setFeeling(''); setIncident(''); setNotes(''); setResult(null); }
+
+function downloadReport() { const payload = { feeling, incident, notes, analysis: result ? result.analysis : null, time: new Date().toISOString(), by: 'Jignas', watermark: true }; const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'jignas_safe_space_report.json'; a.click(); URL.revokeObjectURL(url); }
+
+function shareReport() { const text = I spoke about: ${incident.slice(0, 200)}\nMood: ${feeling.slice(0,80)}\n— shared by Jignas; if (navigator.share) { navigator.share({ title: 'Safe Space Note', text }).catch(() => {}); } else { navigator.clipboard.writeText(text).then(() => alert('Report copied to clipboard. You can paste and share it.')); } }
+
+return ( <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex items-center justify-center p-6 relative overflow-hidden"> {/* watermark */} <div className="pointer-events-none absolute inset-0 flex items-end justify-center opacity-10"> <div className="text-6xl font-bold tracking-widest select-none">JIGNAS</div> </div>
+
+<div className="relative z-10 w-full max-w-3xl bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-6">
+    <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-4">
+      <h1 className="text-2xl md:text-3xl font-extrabold">This is a safe place.</h1>
+      <p className="text-sm text-gray-600 mt-1">Say what you need — I'll listen, analyze, and share motivation. <span className="font-semibold">By Jignas</span></p>
+    </motion.header>
+
+    {step === 0 && (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <p className="mb-4 text-gray-700">How are you feeling right now? (one sentence)</p>
+        <textarea value={feeling} onChange={e=>setFeeling(e.target.value)} rows={2} className="w-full p-3 rounded-lg border" placeholder="e.g. I feel lonely and ignored..."></textarea>
+        <div className="flex gap-3 mt-4">
+          <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg bg-amber-400 font-semibold shadow-sm">Next</button>
+          <button onClick={() => { setFeeling(''); }} className="px-4 py-2 rounded-lg bg-white border">Clear</button>
+        </div>
+      </motion.div>
+    )}
+
+    {step === 1 && (
+      <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x:0, opacity:1 }}>
+        <p className="mb-2 text-gray-700">What was the incident that made you feel this way? (short)</p>
+        <textarea value={incident} onChange={e=>setIncident(e.target.value)} rows={3} className="w-full p-3 rounded-lg border" placeholder="Describe briefly: who, when, what happened..."></textarea>
+        <div className="flex gap-3 mt-4">
+          <button onClick={() => setStep(2)} className="px-4 py-2 rounded-lg bg-amber-400 font-semibold shadow-sm">Next</button>
+          <button onClick={() => setStep(0)} className="px-4 py-2 rounded-lg bg-white border">Back</button>
+        </div>
+      </motion.div>
+    )}
+
+    {step === 2 && (
+      <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y:0, opacity:1 }}>
+        <p className="mb-2 text-gray-700">Anything else you want to add? (thoughts, context, triggers)</p>
+        <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={4} className="w-full p-3 rounded-lg border" placeholder="Add details, how long it has been, who knows, etc."></textarea>
+        <div className="flex gap-3 mt-4">
+          <button onClick={handleSubmit} className="px-4 py-2 rounded-lg bg-amber-500 font-semibold shadow">Analyze</button>
+          <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg bg-white border">Back</button>
+        </div>
+      </motion.div>
+    )}
+
+    {step === 3 && result && (
+      <motion.section initial={{ scale: 0.98, opacity:0 }} animate={{ scale:1, opacity:1 }} className="mt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold">Analysis</h2>
+            <p className="text-sm text-gray-600">Severity: <span className="font-semibold">{result.analysis.severity}</span></p>
+            <p className="text-sm text-gray-600">Score: {result.analysis.score}</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={shareReport} className="px-3 py-2 rounded-lg border">Share</button>
+            <button onClick={downloadReport} className="px-3 py-2 rounded-lg border">Download</button>
+            <button onClick={resetAll} className="px-3 py-2 rounded-lg bg-white border">Start Over</button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-lg bg-white border">
+            <h3 className="font-semibold">Suggested actions</h3>
+            <ul className="mt-2 list-disc ml-5 text-sm text-gray-700">
+              {result.analysis.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+          </div>
+
+          <div className="p-4 rounded-lg bg-white border">
+            <h3 className="font-semibold">Motivational pick</h3>
+            <div className="mt-2">
+              {result.chosenQuotes.map((q, i) => (
+                <blockquote key={i} className="mb-3">
+                  <p className="italic">“{q.text}”</p>
+                  <p className="text-xs text-right">— {q.author}</p>
+                </blockquote>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 p-4 rounded-lg bg-amber-50 border">
+          <h3 className="font-semibold">Short stories</h3>
+          {result.stories.map((s, i) => (
+            <div key={i} className="mb-3">
+              <strong>{s.title}</strong>
+              <p className="text-sm">{s.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 text-xs text-gray-500">Remember: this app is a supportive tool, not a replacement for professional help. <span className="font-semibold">— By Jignas</span></div>
+      </motion.section>
+    )}
+
+    <footer className="mt-6 text-center text-sm text-gray-500">
+      <div className="mb-2">Made with care • Jignas is the well-wisher of this world</div>
+      <div className="flex items-center justify-center gap-3">
+        <button onClick={() => window.location.reload()} className="text-xs underline">Refresh</button>
+        <button onClick={() => { navigator.clipboard.writeText('Made by Jignas — safe space app'); alert('Watermark text copied'); }} className="text-xs underline">Copy watermark</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+); }
+
